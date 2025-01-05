@@ -1,4 +1,4 @@
-package com.plcoding.backgroundlocationtracking
+package com.plcoding.backgroundlocationtracking.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -9,6 +9,7 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
+import com.plcoding.backgroundlocationtracking.hasLocationPermission
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -19,6 +20,10 @@ class DefaultLocationClient(
     private val client: FusedLocationProviderClient
 ): LocationClient {
 
+    override fun getProvider(): FusedLocationProviderClient {
+        return client
+    }
+    
     @SuppressLint("MissingPermission")
     override fun getLocationUpdates(interval: Long): Flow<Location> {
         return callbackFlow {
