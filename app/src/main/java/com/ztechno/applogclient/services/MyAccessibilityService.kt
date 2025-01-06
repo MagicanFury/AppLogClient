@@ -26,10 +26,6 @@ class MyAccessibilityService : AccessibilityService() {
   }
   
   override fun onServiceConnected() {
-    serviceInfo.apply {
-//      eventTypes = AccessibilityEvent.
-    }
-      
     Intent(applicationContext, LocationService::class.java).apply {
       action = LocationService.ACTION_START
       startService(this)
@@ -48,5 +44,10 @@ class MyAccessibilityService : AccessibilityService() {
   
   override fun onInterrupt() {
     TODO("Not yet implemented")
+  }
+  
+  override fun onDestroy() {
+    super.onDestroy()
+    unregisterReceiver(screenReceiver)
   }
 }

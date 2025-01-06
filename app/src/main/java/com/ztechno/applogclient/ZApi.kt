@@ -13,7 +13,12 @@ object ZApi {
   const val KEY_LOCATION_MODE = "location-toggle-v1"
   data class ZLocationMode(var enabled: Boolean)
   
+  const val KEY_BATTERY = "battery-v1"
+  data class ZBattery(var battery: Int)
+  
   const val KEY_BOOT_ON_OFF = "boot-on-off-v1"
   data class ZBootOnOff(var powerOn: Boolean, var battery: Int)
   
+  const val KEY_ACCOUNT_SETUP = "account-setup-v1"
+  data class ZAccountSetup(var androidId: String, var deviceId: String)
 }

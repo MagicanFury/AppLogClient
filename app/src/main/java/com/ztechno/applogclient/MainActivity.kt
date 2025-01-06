@@ -18,14 +18,16 @@ import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.ztechno.applogclient.services.LocationService
 import com.ztechno.applogclient.ui.theme.AppLogClientTheme
-import com.ztechno.applogclient.utils.ZBattery
+import com.ztechno.applogclient.utils.ZDevice
 import com.ztechno.applogclient.utils.ZLog
 
 class MainActivity : ComponentActivity() {
+    
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,11 +42,13 @@ class MainActivity : ComponentActivity() {
         val btnSize = Modifier.size(width = 360.dp, height = 40.dp)
         setContent {
             AppLogClientTheme {
+                val ctx = LocalContext.current
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     Button(modifier = btnSize, onClick = {
                         Intent(applicationContext, LocationService::class.java).apply {
                             action = LocationService.ACTION_START
@@ -73,7 +77,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(modifier = btnSize, onClick = {
-                        ZLog.write("Battery Perc: ${ZBattery.getPercentage(applicationContext)}")
+                        ZLog.write("Battery Perc: ${ZDevice.calcBatteryPercentage(applicationContext)}")
                     }) {
                         Text(text = "Battery Check")
                     }
@@ -87,6 +91,13 @@ class MainActivity : ComponentActivity() {
                         )
                     }) {
                         Text("Hide App")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(modifier = btnSize, onClick = {
+                        val intent = Intent(ctx, SetupActivity::class.java)
+                        ctx.startActivity(intent)
+                    }) {
+                        Text("Setup Device Id")
                     }
                 }
             }

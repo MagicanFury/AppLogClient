@@ -14,6 +14,10 @@ object ZLog {
       Log.i(TAG, "$data")
   }
   
+  fun info(key: Any, value: Any) {
+    Log.d(TAG, "$key $value")
+  }
+  
   fun warn(msg: Any) {
     Log.w(TAG, "$msg")
   }

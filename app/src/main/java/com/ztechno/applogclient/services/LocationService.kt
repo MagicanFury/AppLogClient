@@ -1,6 +1,7 @@
 package com.ztechno.applogclient.services
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -23,9 +24,14 @@ import com.ztechno.applogclient.utils.LocationClient
 import com.ztechno.applogclient.receivers.MainReceiver
 import com.ztechno.applogclient.R
 import com.ztechno.applogclient.ZApi
+import com.ztechno.applogclient.ZApi.KEY_BATTERY
+import com.ztechno.applogclient.ZApi.KEY_CONNECTION
 import com.ztechno.applogclient.ZApi.ZLocation
 import com.ztechno.applogclient.ZApi.KEY_LOCATION
+import com.ztechno.applogclient.launchPeriodicAsync
 import com.ztechno.applogclient.receivers.ScreenUnlockReceiver
+import com.ztechno.applogclient.utils.ZDevice.genBatteryData
+import com.ztechno.applogclient.utils.ZDevice.genConnectionData
 import com.ztechno.applogclient.utils.ZHttp
 import com.ztechno.applogclient.utils.ZLog
 import com.ztechno.applogclient.utils.ZTime
@@ -37,6 +43,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.job
 
 @RequiresApi(Build.VERSION_CODES.O)
 class LocationService: Service() {
@@ -48,6 +55,7 @@ class LocationService: Service() {
     private lateinit var locationClient: LocationClient
     
     private var serviceJob: Job? = null
+    private var tickJob: Job? = null
     
     var notifBuilder = NotificationCompat.Builder(this, "location")
         .setContentTitle("...")
@@ -73,6 +81,7 @@ class LocationService: Service() {
             throw RuntimeException("Couldn't find " + ForegroundEnablingService::class.java.simpleName)
     }
     
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private fun initMainReceiver() {
         val filter = IntentFilter()
         filter.addAction("SOME_ACTION")
@@ -110,24 +119,44 @@ class LocationService: Service() {
     private fun start() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
+        if (tickJob?.isActive == true) {
+            ZLog.warn("Can't start tickJob because it's already running")
+        } else {
+            var prevBatteryData: ZApi.ZBattery? = null
+            var prevConnectionData: ZApi.ZConnection? = null
+            tickJob = serviceScope.launchPeriodicAsync(60_000) {
+                ZLog.write("====================================== | TickJob | ======================================")
+                val battery = genBatteryData(applicationContext)
+                if (battery.battery != prevBatteryData?.battery) {
+                    ZHttp.send(KEY_BATTERY, battery)
+                    prevBatteryData = battery
+                }
+                val connection = genConnectionData(applicationContext, null)
+                if (connection.dataEnabled != prevConnectionData?.dataEnabled ||
+                    connection.wifiEnabled != prevConnectionData?.wifiEnabled) {
+                    ZHttp.send(KEY_CONNECTION, connection)
+                    prevConnectionData = connection
+                }
+            }.job
+        }
+        
         if (serviceJob?.isActive == true) {
             ZLog.warn("Can't start location-updates service because it's already running")
-            return
+        } else {
+            serviceJob = locationClient
+                .getLocationUpdates(1000L * 60L * 10L) // Every 10 minutes
+                .catch { e -> e.printStackTrace() }
+                .onEach { location ->
+                    val loc = ZLocation(location.latitude.toString(), location.longitude.toString(), ZTime.format(location.time), location.accuracy)
+                    val lat = location.latitude.toString().takeLast(3)
+                    val long = location.longitude.toString().takeLast(3)
+                    val updatedNotification = notifBuilder.setContentTitle("$lat, $long")
+                    notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
+                    
+                    ZHttp.send(KEY_LOCATION, loc)
+                }
+                .launchIn(serviceScope)
         }
-
-        serviceJob = locationClient
-            .getLocationUpdates(1000L * 60L * 10L) // Every 10 minutes
-            .catch { e -> e.printStackTrace() }
-            .onEach { location ->
-                val loc = ZLocation(location.latitude.toString(), location.longitude.toString(), ZTime.format(location.time), location.accuracy)
-                val lat = location.latitude.toString().takeLast(3)
-                val long = location.longitude.toString().takeLast(3)
-                val updatedNotification = notifBuilder.setContentTitle("$lat, $long")
-                notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
-                
-                ZHttp.send(KEY_LOCATION, loc)
-            }
-            .launchIn(serviceScope)
 
 //        startForeground(NOTIFICATION_ID, notification.build())
     }
@@ -169,6 +198,7 @@ class LocationService: Service() {
         super.onDestroy()
         serviceScope.cancel()
         unregisterReceiver(mainReceiver)
+        unregisterReceiver(screenReceiver)
         instance = null
     }
 

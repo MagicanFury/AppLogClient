@@ -7,7 +7,17 @@ import android.content.Context
 import android.os.Build
 
 class LocationApp: Application() {
-
+    init {
+        instance = this
+    }
+    companion object {
+        private var instance: LocationApp? = null
+        
+        fun applicationContext(): Context {
+            return instance!!.applicationContext
+        }
+    }
+    
     override fun onCreate() {
         super.onCreate()
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
