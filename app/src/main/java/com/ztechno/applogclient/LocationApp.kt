@@ -4,7 +4,11 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.net.TrafficStats
 import android.os.Build
+import android.os.StrictMode
+import android.os.StrictMode.ThreadPolicy
+import com.ztechno.applogclient.utils.ZLog
 
 class LocationApp: Application() {
     init {
@@ -20,6 +24,25 @@ class LocationApp: Application() {
     
     override fun onCreate() {
         super.onCreate()
+        
+        ZLog.write("LocationApp.onCreate()")
+        StrictMode.setThreadPolicy(ThreadPolicy.Builder().permitAll().build())
+//        StrictMode.enableDefaults()
+//        StrictMode.setThreadPolicy(
+//            StrictMode.ThreadPolicy.Builder()
+//                .detectAll()
+//                .penaltyLog()
+//                .build()
+//        )
+//        StrictMode.setVmPolicy(
+//            VmPolicy.Builder()
+//                .detectAll()
+//                .penaltyLog()
+//                .build()
+//        )
+        
+        TrafficStats.setThreadStatsTag(Thread.currentThread().id.toInt())
+        
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "location",

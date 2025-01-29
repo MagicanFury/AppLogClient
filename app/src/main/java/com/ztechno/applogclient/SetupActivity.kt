@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
 import com.ztechno.applogclient.ZApi.KEY_ACCOUNT_SETUP
 import com.ztechno.applogclient.ZApi.ZAccountSetup
 import com.ztechno.applogclient.ui.ZTextField
@@ -41,14 +42,14 @@ class SetupActivity : ComponentActivity() {
     sharedPreferences = getPreferences(MODE_PRIVATE)
     viewModel = SetupViewModel(
       androidId = ZDevice.androidId(applicationContext),
-      deviceId = ZDevice.getOrGenerateDeviceId(sharedPreferences)
+      deviceId = ZDevice.getOrGenerateDeviceId(sharedPreferences),
     )
     
     val btnSize = Modifier.size(width = 360.dp, height = 40.dp)
     val inputSize = Modifier.width(360.dp)
     setContent {
       AppLogClientTheme {
-        val ctx = LocalContext.current
+//        val ctx = LocalContext.current
         Column(
           modifier = Modifier.fillMaxSize(),
           verticalArrangement = Arrangement.Center,
@@ -81,14 +82,22 @@ class SetupActivity : ComponentActivity() {
     editor.putString("deviceId", newDeviceId)
     editor.apply()
     
+    
+    val jsonStr = if (intent.hasExtra("location")) intent.getStringExtra("location") else null
+    val pos = if (jsonStr != null) Gson().fromJson(jsonStr, ZApi.ZLocation::class.java) else null
+    
     ZHttp.send(
       KEY_ACCOUNT_SETUP,
-      ZAccountSetup(viewModel.androidId, viewModel.deviceId)
+      ZAccountSetup(viewModel.androidId, viewModel.deviceId, pos?.lat, pos?.lng),
+      callback = {
+        ZLog.write("ACCOUNT_SETUP response:\n$it")
+        finish()
+      }
     )
-    runBlocking {
-      delay(2000)
-      finish()
-    }
+//    runBlocking {
+//      delay(80)
+//      finish()
+//    }
   }
   
   private fun onCancelClicked() {
