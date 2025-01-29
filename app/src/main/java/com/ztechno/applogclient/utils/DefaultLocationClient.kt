@@ -17,11 +17,16 @@ import kotlinx.coroutines.launch
 
 class DefaultLocationClient(
     private val context: Context,
-    private val client: FusedLocationProviderClient
+    private val client: FusedLocationProviderClient,
+    private var gpsPriority: Int
 ): LocationClient {
 
     override fun getProvider(): FusedLocationProviderClient {
         return client
+    }
+    
+    override fun setGpsAccuracy(priority: Int) {
+        gpsPriority = priority
     }
     
     @SuppressLint("MissingPermission")
@@ -40,12 +45,16 @@ class DefaultLocationClient(
             }
 
             val request = LocationRequest.create()
+                .setPriority(gpsPriority)
                 .setInterval(interval)
                 .setFastestInterval(interval)
 
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
                     super.onLocationResult(result)
+                    if (gpsPriority != request.priority) {
+                        request.priority = gpsPriority
+                    }
                     result.locations.lastOrNull()?.let { location ->
                         launch { send(location) }
                     }

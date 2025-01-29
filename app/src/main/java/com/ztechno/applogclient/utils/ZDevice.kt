@@ -16,6 +16,7 @@ import com.ztechno.applogclient.ZApi.ZBootOnOff
 import com.ztechno.applogclient.ZApi.ZConnection
 import com.ztechno.applogclient.ZApi.ZLocationMode
 import com.ztechno.applogclient.ZApi.ZBattery
+import com.ztechno.applogclient.ZApi.ZActivityTransition
 import kotlin.math.floor
 
 object ZDevice {
@@ -84,5 +85,9 @@ object ZDevice {
   
   fun genBatteryData(context: Context): ZBattery {
     return ZBattery(calcBatteryPercentage(context))
+  }
+  
+  fun genActivityData(context: Context, activityType: String, transitionType: String?, extraData: String?): ZActivityTransition {
+    return ZActivityTransition(activityType, transitionType, extraData)
   }
 }

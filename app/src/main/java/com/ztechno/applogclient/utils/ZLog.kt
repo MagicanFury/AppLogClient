@@ -2,36 +2,44 @@ package com.ztechno.applogclient.utils
 
 import android.os.Bundle
 import android.util.Log
+import com.ztechno.applogclient.BuildConfig
 
 object ZLog {
   
   private const val TAG = "ZTECHNO"
   
+  private val isDev = BuildConfig.DEBUG
+  
   fun write(data: Any) {
     if (data is Exception)
       Log.e(TAG, data.stackTraceToString())
-    else
+    else if (isDev)
       Log.i(TAG, "$data")
   }
   
   fun info(key: Any, value: Any) {
+    if (!isDev) return
     Log.d(TAG, "$key $value")
   }
   
   fun warn(msg: Any) {
+    if (!isDev) return
     Log.w(TAG, "$msg")
   }
   
   fun error(err: Any) {
-    if (err is Exception) {
-      Log.e(TAG, err.stackTraceToString())
-    } else {
-      Log.e(TAG, "$err")
+    when (err) {
+      is Throwable -> {
+        Log.e(TAG, err.stackTraceToString())
+      }
+      else -> {
+        Log.e(TAG, "$err")
+      }
     }
   }
   
   fun extrasToString(extras: Bundle?): String {
-    if (extras == null) {
+    if (!isDev || extras == null) {
       return ""
     }
     val output: MutableList<String> = mutableListOf()

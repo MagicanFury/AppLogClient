@@ -34,6 +34,7 @@ class ForegroundEnablingService : Service() {
     
     val notification = NotificationCompat.Builder(this, "location")
       .setContentTitle("...")
+      .setContentText("....")
       .setSmallIcon(R.drawable.ic_launcher_background)
       .setOngoing(true)
     LocationService.instance?.notifBuilder = notification

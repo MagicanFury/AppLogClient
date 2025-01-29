@@ -9,6 +9,10 @@ import java.time.format.DateTimeFormatter
 @RequiresApi(Build.VERSION_CODES.O)
 object ZTime {
   
+  fun msSince1970(): Long {
+    return System.currentTimeMillis()
+  }
+  
   fun timestamp(): String {
     return DateTimeFormatter
       .ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")

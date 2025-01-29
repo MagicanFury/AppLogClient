@@ -7,5 +7,6 @@ import kotlinx.coroutines.flow.Flow
 interface LocationClient {
     fun getLocationUpdates(interval: Long): Flow<Location>
     fun getProvider(): FusedLocationProviderClient
+    fun setGpsAccuracy(priority: Int)
     class LocationException(message: String): Exception()
 }

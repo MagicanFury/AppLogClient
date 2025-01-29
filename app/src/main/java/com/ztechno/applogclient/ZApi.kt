@@ -1,5 +1,14 @@
 package com.ztechno.applogclient
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import com.google.firebase.crashlytics.buildtools.reloc.com.google.common.reflect.TypeToken
+import com.google.gson.Gson
+import com.ztechno.applogclient.utils.ALatLng
+import com.ztechno.applogclient.utils.ZHttp
+import com.ztechno.applogclient.utils.ZLog
+
+@RequiresApi(Build.VERSION_CODES.O)
 object ZApi {
   const val KEY_LOCATION = "loc-v1"
   data class ZLocation(var lat: String, var lng: String, var gpsTime: String, var accuracy: Float) // accuracy in meters
@@ -19,6 +28,25 @@ object ZApi {
   const val KEY_BOOT_ON_OFF = "boot-on-off-v1"
   data class ZBootOnOff(var powerOn: Boolean, var battery: Int)
   
-  const val KEY_ACCOUNT_SETUP = "account-setup-v1"
-  data class ZAccountSetup(var androidId: String, var deviceId: String)
+  const val KEY_ACCOUNT_SETUP = "account-setup-v2"
+  data class ZAccountSetup(var androidId: String, var deviceId: String, var lat: String?, var lng: String?)
+  
+  const val KEY_ACTIVITY_TRANSITION = "activity-transition-v2"
+  data class ZActivityTransition(var activityType: String, var transitionType: String?, var extraData: String? = null)
+  
+  data class ZUserLocation(var lat: Double, var lng: Double, var description: String)
+  
+  @RequiresApi(Build.VERSION_CODES.O)
+  fun fetchUserLocations(): List<ALatLng>? {
+    val strUserLocs = ZHttp.fetch("/userlocations")
+    ZLog.write("user-locations res: $strUserLocs")
+    if (!strUserLocs.isNullOrEmpty()) {
+      val itemType = object : TypeToken<List<ZUserLocation>>() {}.type
+      return Gson()
+        .fromJson<List<ZUserLocation>>(strUserLocs, itemType)
+        .map { ALatLng(it.lat, it.lng)  }
+        .toMutableList()
+    }
+    return null
+  }
 }
