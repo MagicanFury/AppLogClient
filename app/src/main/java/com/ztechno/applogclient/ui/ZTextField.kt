@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import com.ztechno.applogclient.SetupViewModel
 
 @Composable
-fun ZTextField(viewModel: SetupViewModel, initialValue: String? = "", label: String = "Label", modifier: Modifier = Modifier) {
+fun ZTextField(viewModel: SetupViewModel, label: String = "Label", modifier: Modifier = Modifier) {
 //  var text by remember { mutableStateOf(initialValue ?: "Text") }
   TextField(
     value = viewModel.deviceId,

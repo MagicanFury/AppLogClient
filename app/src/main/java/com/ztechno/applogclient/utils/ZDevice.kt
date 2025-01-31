@@ -10,15 +10,18 @@ import android.net.NetworkInfo
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import com.ztechno.applogclient.LocationApp
-import com.ztechno.applogclient.ZApi.ZAirplaneMode
-import com.ztechno.applogclient.ZApi.ZBootOnOff
-import com.ztechno.applogclient.ZApi.ZConnection
-import com.ztechno.applogclient.ZApi.ZLocationMode
-import com.ztechno.applogclient.ZApi.ZBattery
-import com.ztechno.applogclient.ZApi.ZActivityTransition
+import com.ztechno.applogclient.http.ZApi.ZAirplaneMode
+import com.ztechno.applogclient.http.ZApi.ZBootOnOff
+import com.ztechno.applogclient.http.ZApi.ZConnection
+import com.ztechno.applogclient.http.ZApi.ZLocationMode
+import com.ztechno.applogclient.http.ZApi.ZBattery
+import com.ztechno.applogclient.http.ZApi.ZActivityTransition
+import com.ztechno.applogclient.http.ZHttp
 import kotlin.math.floor
 
+@RequiresApi(Build.VERSION_CODES.O)
 object ZDevice {
   
   fun androidId(context: Context = LocationApp.applicationContext()): String {
@@ -55,16 +58,21 @@ object ZDevice {
   
   fun genConnectionData(context: Context, networkInfo: NetworkInfo?): ZConnection {
 //    val wifi = context!!.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
-    val connManager = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
-    val mWifi = connManager?.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-    val mData = connManager?.getNetworkInfo(ConnectivityManager.TYPE_MOBILE)
-    var state: String = (networkInfo?.state ?: mWifi?.state ?: mData?.state!!).toString()
-    return ZConnection(mWifi?.isConnected, mData?.isConnected, state)
+//    val connManager = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
+////    val capabilities = connManager?.getNetworkCapabilities(null)
+//    val mWifi = connManager?.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+//    val mData = connManager?.getNetworkInfo(ConnectivityManager.TYPE_MOBILE)
+//    var state: String = (networkInfo?.state ?: mWifi?.state ?: mData?.state!!).toString()
+    val wifi = ZHttp.getWifiSettings()
+    val data = ZHttp.getDataSettings()
+    
+    val hasInternet = (wifi?.state == NetworkInfo.State.CONNECTED || data?.state == NetworkInfo.State.CONNECTED)
+    return ZConnection(ZHttp.getSSID(), hasInternet)
   }
   
   fun genAirplaneOnData(context: Context): ZAirplaneMode {
     val isTurnedOn = Settings.Global.getInt(
-      context?.contentResolver,
+      context.contentResolver,
       Settings.Global.AIRPLANE_MODE_ON
     ) != 0
     return ZAirplaneMode(isTurnedOn)

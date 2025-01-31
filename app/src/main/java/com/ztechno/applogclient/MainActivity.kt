@@ -1,10 +1,14 @@
 package com.ztechno.applogclient
 
 import android.Manifest
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -25,9 +29,40 @@ import com.ztechno.applogclient.services.LocationService
 import com.ztechno.applogclient.ui.theme.AppLogClientTheme
 import com.ztechno.applogclient.utils.ZDevice
 import com.ztechno.applogclient.utils.ZLog
+import com.ztechno.applogclient.utils.hasActivityRecognitionPermission
+import com.ztechno.applogclient.utils.hasLocationPermission
 
 @RequiresApi(Build.VERSION_CODES.O)
-class MainActivity : ComponentActivity() {
+class MainActivity(var viewModel: MainViewModel = MainViewModel()) : ComponentActivity() {
+    
+    private lateinit var locationService: LocationService
+    private var bound: Boolean = false
+    
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance.
+            val binder = service as LocationService.LocalBinder
+            locationService = binder.getService()
+            bound = true
+            viewModel.loadValue(locationService)
+            
+            ZLog.error("LocationService BOUND!")
+        }
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            bound = false
+            ZLog.error("LocationService UNBOUND!!")
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        if (!bound) {
+            // Bind to LocationService
+            Intent(this, LocationService::class.java).also { intent ->
+                bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            }
+        }
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +86,9 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    
+                    Text(text = viewModel.mutableValue)
+                    
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(modifier = btnSize, onClick = {
                         Intent(applicationContext, LocationService::class.java).apply {
@@ -131,8 +169,22 @@ class MainActivity : ComponentActivity() {
                     }) {
                         Text("Setup Device Id")
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(modifier = btnSize, onClick = {
+                        val intent2 = Intent(applicationContext, HistoryActivity::class.java)
+                        startActivity(intent2)
+                    }) {
+                        Text("Show History")
+                    }
+                    Spacer(modifier = Modifier.height(64.dp))
                 }
             }
         }
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        unbindService(connection)
+        bound = false
     }
 }

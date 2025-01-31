@@ -52,44 +52,14 @@
 
         <receiver android:enabled="true" android:exported="true" android:name="com.ztechno.applogclient.receivers.PressHomeReceiver"/>
 
-        <receiver
-            android:name=".receivers.ActivityTransitionReceiver"
-            android:exported="false"
-            android:permission="com.google.android.gms.permission.ACTIVITY_RECOGNITION">
-            <intent-filter>
-                <action android:name="action.TRANSITIONS_DATA" />
-            </intent-filter>
-        </receiver>
-
-        <receiver android:name="com.ztechno.applogclient.receivers.MainReceiver"
-            android:permission="com.google.android.gms.permission.ACTIVITY_RECOGNITION"
-            android:exported="false">
-
-            <intent-filter android:priority="100">
-                <action android:name="ACTION_PROCESS_ACTIVITY"
-                    android:enabled="true" />
-                <action android:name="com.ztechno.applogclient.ACTION_PROCESS_ACTIVITY_TRANSITIONS"
-                    android:enabled="true" />
-                <action android:name="android.net.wifi.WIFI_STATE_CHANGED"
-                    android:enabled="true" />
-                <action android:name="android.net.conn.CONNECTIVITY_CHANGE"
-                    android:enabled="true" />
-                <action android:name="android.net.wifi.STATE_CHANGE"
-                    android:enabled="true" />
-                <action android:name="android.location.PROVIDERS_CHANGED"
-                    android:enabled="true" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON"
-                    android:enabled="true" />
-                <action android:name="android.intent.action.BOOT_COMPLETED"
-                    android:enabled="true" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"
-                    android:enabled="true" />
-                <action android:name="android.intent.action.REBOOT"
-                    android:enabled="true" />
-                <action android:name="android.intent.action.ACTION_SHUTDOWN"
-                    android:enabled="true" />
-            </intent-filter>
-        </receiver>
+<!--        <receiver-->
+<!--            android:name=".receivers.ActivityTransitionReceiver"-->
+<!--            android:exported="false"-->
+<!--            android:permission="com.google.android.gms.permission.ACTIVITY_RECOGNITION">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="action.TRANSITIONS_DATA" />-->
+<!--            </intent-filter>-->
+<!--        </receiver>-->
 
         <receiver android:name="com.ztechno.applogclient.receivers.ScreenUnlockReceiver" android:exported="false">
             <intent-filter android:priority="98">
@@ -138,6 +108,12 @@
 
         <activity
             android:name="com.ztechno.applogclient.SetupActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullSensor" />
+
+        <activity
+            android:name="com.ztechno.applogclient.HistoryActivity"
             android:exported="false"
             android:launchMode="singleTask"
             android:screenOrientation="fullSensor" />

@@ -1,9 +1,11 @@
-package com.ztechno.applogclient.utils
+package com.ztechno.applogclient.http
 
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.NetworkInfo
 import android.net.TrafficStats
+import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.github.kittinunf.fuel.core.extensions.jsonBody
@@ -11,10 +13,15 @@ import com.github.kittinunf.fuel.httpGet
 import com.github.kittinunf.fuel.httpPut
 import com.google.gson.Gson
 import com.ztechno.applogclient.LocationApp
+import com.ztechno.applogclient.utils.ZDevice
+import com.ztechno.applogclient.utils.ZLog
+import com.ztechno.applogclient.utils.ZTime
+import com.ztechno.applogclient.utils.stripQuotes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.URLEncoder
+
 
 data class ZPacket(var key: String, var data: Any, var timestamp: String, var id: String)
 
@@ -23,8 +30,19 @@ object ZHttp {
   
   private const val BASE_URL: String = "https://www.ztechno.nl/applog"
   
+  val history = mutableListOf<ZPacket>()
+  
   private val planQueue = mutableListOf<ZPacket>()
   private val retryQueue = mutableListOf<ZPacket>()
+  private val connectivityManager: ConnectivityManager
+  private val wifiManager: WifiManager
+  
+  init {
+    val ctx = LocationApp.applicationContext()
+    val appCtx = ctx.applicationContext
+    connectivityManager = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    wifiManager = appCtx.getSystemService(Context.WIFI_SERVICE) as WifiManager
+  }
   
   fun fetch(endpoint: String, params: MutableMap<String, String>? = null): String? {
     val data = params ?: mutableMapOf("androidId" to ZDevice.androidId())
@@ -43,9 +61,12 @@ object ZHttp {
   }
   
   fun send(key: String, data: Any, callback: ((payload: String) -> Any)? = null) {
-    val ctx = LocationApp.applicationContext() ?: throw Error("No Context")
     val packet = ZPacket(key, data, ZTime.timestamp(), ZDevice.androidId())
-    if (!isOnline(ctx)) {
+    history.add(packet)
+    if (history.size > 100) {
+      history.removeAt(0)
+    }
+    if (!isOnline()) {
       planQueue.add(packet)
       return
     }
@@ -106,9 +127,7 @@ object ZHttp {
     }
   }
   
-  private fun isOnline(context: Context): Boolean {
-    val connectivityManager =
-      context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+  private fun isOnline(): Boolean {
     val capabilities =
       connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
     if (capabilities != null) {
@@ -124,6 +143,31 @@ object ZHttp {
       }
     }
     return false
+  }
+  
+  fun getWifiSettings(): NetworkInfo? {
+    return connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+  }
+  
+  fun getDataSettings(): NetworkInfo? {
+    return connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_MOBILE)
+  }
+  
+  fun getSSID(): String {
+    val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+    if (capabilities != null) {
+      if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+        return "CELLULAR"
+      } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+        val info = wifiManager.connectionInfo
+        return if (info?.ssid != null) info.ssid?.stripQuotes() ?: "WIFI_UNKNOWN" else "WIFI_UNKNOWN"
+      } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+        return "ETHERNET"
+      } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+        return "VPN"
+      }
+    }
+    return "NONE"
   }
   
   fun put(endpoint: String, data: Any) {

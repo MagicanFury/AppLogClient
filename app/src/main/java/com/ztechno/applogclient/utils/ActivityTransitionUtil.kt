@@ -4,9 +4,26 @@ import android.content.Context
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionEvent
 import com.google.android.gms.location.DetectedActivity
-import com.ztechno.applogclient.hasActivityRecognitionPermission
 
 object ActivityTransitionUtil {
+  
+  /**
+   * Returns true if state just turned to MOVING
+   * Returns false if state just turned to STILL
+   * Returns null if other state
+   */
+  fun startedOrStoppedMoving(event: ActivityTransitionEvent): Boolean? {
+    if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
+      if (event.activityType == DetectedActivity.STILL) {
+        return false
+      }
+    } else {
+      if (event.activityType == DetectedActivity.STILL) {
+        return true
+      }
+    }
+    return null
+  }
   
   fun isTravelling(event: ActivityTransitionEvent): Boolean {
     if (event.activityType == DetectedActivity.STILL && event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
@@ -31,7 +48,7 @@ object ActivityTransitionUtil {
     
     val activities = listOf(
 //      DetectedActivity.STILL,
-//      DetectedActivity.WALKING,
+      DetectedActivity.WALKING,
 //      DetectedActivity.RUNNING,
       DetectedActivity.ON_BICYCLE,
       DetectedActivity.IN_VEHICLE

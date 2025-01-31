@@ -15,8 +15,7 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
   
   override fun onReceive(context: Context?, intent: Intent?) {
     ZLog.write("ScreenUnlockReceiver.onReceive: $intent ${ZLog.extrasToString(intent?.extras)}")
-    
-    ZLaunch.ensureServiceRunning(context!!,  LocationService::class.java)
+    ZLaunch.ensureServiceRunning(context!!, LocationService::class.java)
   }
   
   companion object {

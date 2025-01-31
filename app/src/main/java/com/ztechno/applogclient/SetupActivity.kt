@@ -17,18 +17,16 @@ import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
-import com.ztechno.applogclient.ZApi.KEY_ACCOUNT_SETUP
-import com.ztechno.applogclient.ZApi.ZAccountSetup
+import com.ztechno.applogclient.http.ZApi
+import com.ztechno.applogclient.http.ZApi.KEY_ACCOUNT_SETUP
+import com.ztechno.applogclient.http.ZApi.ZAccountSetup
 import com.ztechno.applogclient.ui.ZTextField
 import com.ztechno.applogclient.ui.theme.AppLogClientTheme
-import com.ztechno.applogclient.utils.ZHttp
+import com.ztechno.applogclient.http.ZHttp
 import com.ztechno.applogclient.utils.ZDevice
 import com.ztechno.applogclient.utils.ZLog
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 
 @RequiresApi(Build.VERSION_CODES.O)
 class SetupActivity : ComponentActivity() {
@@ -95,7 +93,7 @@ class SetupActivity : ComponentActivity() {
       }
     )
 //    runBlocking {
-//      delay(80)
+//      delay(80)1
 //      finish()
 //    }
   }
