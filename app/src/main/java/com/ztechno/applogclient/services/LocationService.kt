@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-import android.location.Location
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -47,34 +46,36 @@ import com.ztechno.applogclient.utils.ALatLng
 import com.ztechno.applogclient.utils.ActivityTransitionUtil
 import com.ztechno.applogclient.loc.DefaultLocationClient
 import com.ztechno.applogclient.loc.LocationClient
-import com.ztechno.applogclient.utils.ZDevice.genConnectionData
 import com.ztechno.applogclient.utils.ZGps
 import com.ztechno.applogclient.http.ZHttp
 import com.ztechno.applogclient.http.ZPacket
+import com.ztechno.applogclient.tickers.LocationTicker
 import com.ztechno.applogclient.utils.ZLog
 import com.ztechno.applogclient.utils.ZTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlin.math.floor
-import kotlin.math.min
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 class LocationService: Service() {
     
-    private val logGps = false
+    private val logGps = true
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
-    //    private val locationTicker = LocationTicker(serviceScope, this)
-    private val batteryTicker = BatteryTicker(serviceScope)
-    private val connectionTicker = ConnectionTicker(serviceScope)
-    private var locationJob: Job? = null
+    private lateinit var notifManager: NotificationManager
+    
+    val locationTicker = LocationTicker(serviceScope, this)
+    private val batteryTicker = BatteryTicker(serviceScope, TICKER_METADATA_TIMEOUT)
+    private val connectionTicker = ConnectionTicker(serviceScope, TICKER_METADATA_TIMEOUT)
+//    private val ensureLocationTicker = ZTickerBase(serviceScope, TICKER_METADATA_TIMEOUT) {
+//        startLocationJob(forceRestart = false)
+//        true
+//    }
+    
+//    private var locationJob: Job? = null
     
     private var mainReceiver: BroadcastReceiver = MainReceiver(this)
     private var screenReceiver: BroadcastReceiver = ScreenUnlockReceiver()
@@ -83,16 +84,13 @@ class LocationService: Service() {
     
     private var activityPendingIntent: PendingIntent? = null
     
-    private var thresholdDistanceHome: Double = 50.0
-    
     
     private var userLocations: List<ALatLng> = mutableListOf(latLngKtown)
-    private var distanceFromHome: Double = 0.0
     
     private var lastGpsUpdate: Long = 0
     private var prevLatLng: ALatLng? = null
     
-    var isHome by mutableStateOf(false)
+    var isCloseToUserLoc by mutableStateOf(false)
         private set
     var isTravelling by mutableStateOf(false)
         private set
@@ -108,15 +106,15 @@ class LocationService: Service() {
         .setSmallIcon(R.drawable.ic_launcher_background)
         .setOngoing(true)
 
-    fun getPacketHistory(): MutableList<ZPacket> {
-        return ZHttp.history
+    fun getPacketHistory(unsent: Boolean = false): List<ZPacket> {
+        return if (unsent) ZHttp.retryQueue + ZHttp.planQueue else ZHttp.history
     }
     
     fun getData(): ZApi.ZTmp {
-        return ZApi.ZTmp(isHome, isTravelling, calcInterval(), "?", currentActivity)
+        return ZApi.ZTmp(locationTicker.isActive, isCloseToUserLoc, isTravelling, calcInterval(), "?", currentActivity)
     }
     
-    override fun onBind(p0: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder {
         return LocalBinder()
     }
     
@@ -128,7 +126,9 @@ class LocationService: Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        ZLog.info("[LocationService]", "Settings gpsPriority: ${ZGps.priorityToString(gpsPriority)}, isHome: $isHome, isTravelling: $isTravelling")
+        notifManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        locationTicker.setNotificationManager(notifManager)
+        ZLog.info("[LocationService]", "Settings gpsPriority: ${ZGps.priorityToString(gpsPriority)}, isCloseToUserLoc: $isCloseToUserLoc, isTravelling: $isTravelling")
         ZLog.info("[LocationService]", "Registering MainReceiver")
         registerReceiver(mainReceiver, MainReceiver.filters())
         ZLog.info("[LocationService]", "Registering ScreenUnlockReceiver")
@@ -142,8 +142,10 @@ class LocationService: Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        ZLog.write("[LocationService] onStartCommand()")
+        ZLog.write("[LocationService] onStartCommand() $flags $startId")
         when (intent?.action) {
+            // intent is null upon unexpecting crash
+            null -> start()
             Intent.ACTION_BOOT_COMPLETED -> start()
             ACTION_START -> start()
             ACTION_STOP -> stop()
@@ -173,11 +175,11 @@ class LocationService: Service() {
                 }
             }
             ACTION_SHOW_HISTORY -> {
-                val intent = Intent(applicationContext, HistoryActivity::class.java)
-                intent.setFlags(FLAG_ACTIVITY_NEW_TASK)
-                applicationContext.startActivity(intent)
+                val intent3 = Intent(applicationContext, HistoryActivity::class.java)
+                intent3.setFlags(FLAG_ACTIVITY_NEW_TASK)
+                applicationContext.startActivity(intent3)
             }
-            else -> ZLog.warn("[LocationService] onStartCommand: $intent ${ZLog.extrasToString(intent?.extras)}")
+            else -> ZLog.warn("[LocationService] onStartCommand: $intent ${ZLog.intentToString(intent)}")
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -185,9 +187,12 @@ class LocationService: Service() {
     private fun start(forceRestart: Boolean = false) {
         ZLog.warn("[LocationService] start()")
         startActivityRecognition()
-        startLocationJob(forceRestart)
+//        startLocationJob(forceRestart)
+        locationTicker.start(forceRestart)
         batteryTicker.start(forceRestart)
         connectionTicker.start(forceRestart)
+//        ensureLocationTicker.start(forceRestart = false)
+        
 //        startForeground(NOTIFICATION_ID, notification.build())
     }
     
@@ -209,45 +214,45 @@ class LocationService: Service() {
 //        }.job
 //    }
     
-    private fun calcInterval(): Long {
+    fun calcInterval(): Long {
         if (isTravelling) {
             return TICKER_TRAVEL_INTERVAL
         }
-        if (!isHome) {
+        if (!isCloseToUserLoc) {
             return TICKER_STILL_INTERVAL
         }
         return TICKER_HOME_INTERVAL
     }
     
-    private fun startLocationJob(forceRestart: Boolean) {
-        if (forceRestart) {
-            locationJob?.cancel("[LocationService] onDestroy()")
-            return
-        } else if (locationJob?.isActive == true) {
-            ZLog.warn("Can't start location-updates service because it's already running")
-        }
-        ZLog.write("StartLocationServiceJob")
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        locationJob = locationClient
-            .getLocationUpdates(calcInterval(), onClose = {
-                val updatedNotification = notifBuilder.setOngoing(false)
-                notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
-                startLocationJob(forceRestart = false)
-            })
-            .catch { e -> ZLog.error(e) }
-            .onEach { location ->
-                val loc = handleGpsData(location)
-                val updatedNotification = notifBuilder
-                    .setOngoing(true)
-                    .setContentTitle(location.latitude.toString().takeLast(3) + ", " + location.longitude.toString().takeLast(3))
-                notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
-                if (logGps) {
-                    ZLog.warn("getLocationUpdates Invoked by serviceJob (const interval = ?)")
-                }
-                ZHttp.send(KEY_LOCATION, loc)
-            }
-            .launchIn(serviceScope)
-    }
+//    private fun startLocationJob(forceRestart: Boolean) {
+//        if (forceRestart) {
+//            locationJob?.cancel("[LocationService] onDestroy()")
+//            return
+//        } else if (locationJob?.isActive == true) {
+//            ZLog.warn("Can't start location-updates service because it's already running")
+//        }
+//        ZLog.write("StartLocationServiceJob")
+//        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+//        locationJob = locationClient
+//            .getLocationUpdates(calcInterval(), onClose = {
+//                val updatedNotification = notifBuilder.setOngoing(false)
+//                notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
+//                startLocationJob(forceRestart = false)
+//            })
+//            .catch { e -> ZLog.error(e) }
+//            .onEach { location ->
+//                val loc = handleGpsData(location, ActivityTransitionUtil.toActivityInt(currentActivity))
+//                val updatedNotification = notifBuilder
+//                    .setOngoing(true)
+//                    .setContentTitle(location.latitude.toString().takeLast(3) + ", " + location.longitude.toString().takeLast(3))
+//                notificationManager.notify(NOTIFICATION_ID, updatedNotification.build())
+//                if (logGps) {
+//                    ZLog.warn("getLocationUpdates Invoked by serviceJob (const interval = ?)")
+//                }
+//                ZHttp.send(KEY_LOCATION, loc)
+//            }
+//            .launchIn(serviceScope)
+//    }
     
     
     @SuppressLint("MissingPermission", "MutableImplicitPendingIntent")
@@ -258,7 +263,7 @@ class LocationService: Service() {
             return
         }
         tryStopActivityRecognition()
-        val client = ActivityRecognition.getClient(context);
+        val client = ActivityRecognition.getClient(context)
         val intent = Intent(MainReceiver.ACTION_PROCESS_ACTIVITY)
         val pIntent = PendingIntent.getBroadcast(context, NOTIFICATION_ID, intent, FLAG_MUTABLE or FLAG_UPDATE_CURRENT)
         
@@ -272,28 +277,15 @@ class LocationService: Service() {
         activityPendingIntent = pIntent
     }
     
-    private var lastActivityTransitionTime: Long = 0
     fun handleActivityTransition(event: ActivityTransitionEvent, data: ZActivityTransition) {
-        lastActivityTransitionTime = ZTime.msSince1970()
-        
         val prevActivity = currentActivity
         if (event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
             currentActivity = ActivityTransitionUtil.toActivityString(event.activityType)
-            ZHttp.send(ZApi.KEY_TMP, ZApi.ZTmp(isHome, isTravelling, calcInterval(), prevActivity, currentActivity))
+            ZHttp.send(ZApi.KEY_TMP, ZApi.ZTmp(locationTicker.isActive, isCloseToUserLoc, isTravelling, calcInterval(), prevActivity, currentActivity))
         }
-        
         val isTravelling = ActivityTransitionUtil.startedOrStoppedMoving(event)
         if (isTravelling != null) {
             this.isTravelling = isTravelling
-            if (locationClient.isIntervalChanged(calcInterval())) {
-                startLocationJob(forceRestart = true)
-                ZLog.write("isTravelling changed to $isTravelling, restarting LocationJob")
-            }
-        }
-        val connection = genConnectionData(applicationContext, null)
-//        if (connection.wifiEnabled == false && connection.dataEnabled == true) {
-        if (connection.ssid != "NONE") {
-            fetchLocation("ActivityTransition (activity = ${data.activityType}, transition = ${data.transitionType})")
         }
         ZLog.write("[LocationService] Activity Transition: " +
             "activityType: ${data.activityType} " +
@@ -301,62 +293,48 @@ class LocationService: Service() {
             "(extraData: ${data.extraData})")
         ZHttp.send(ZApi.KEY_ACTIVITY_TRANSITION, data)
         
-    }
-    private fun handleGpsData(location: Location): ZLocation {
-        val loc = location.toData()
-        val latLng = ALatLng(location.latitude, location.longitude)
-        
-        // Check if home
-        var minDist: Double = Double.MAX_VALUE
-        var isCloseToUserLoc = false
-        userLocations.map {
-            val dist = ZGps.distancePrecise(latLng, it)
-            minDist = min(minDist, dist)
-            if (dist <= thresholdDistanceHome) {
-                isCloseToUserLoc = true
-            }
-        }
-        if (isHome != isCloseToUserLoc) {
-            isHome = isCloseToUserLoc
-            val priority = gpsPriority
-//            ZLog.write("[LocationService] setting gpsIntervalThreshold: $gpsIntervalThreshold ms gpsPriority: ${ZGps.priorityToString(priority)} (isHome=$isHome)")
-            locationClient.setGpsAccuracy(priority)
-            if (locationClient.isIntervalChanged(calcInterval())) {
-                startLocationJob(forceRestart = true)
-            }
-        }
-        distanceFromHome = minDist
-        
-        if (logGps) {
-            ZLog.write("[LocationService] " +
-                "timeSinceLastGps: ${floor(timeSinceLastGps/1000.0)} s, " +
-                "distanceFromHome: ${floor(distanceFromHome)} m, " +
-                "gpsPriority: ${ZGps.priorityToString(gpsPriority)}, " +
-                "isHome: $isHome")
-        }
-        lastGpsUpdate = ZTime.msSince1970() // location.time
-        prevLatLng = latLng
-        return loc
+        fetchLocation("ActivityTransition (activity = ${data.activityType}, transition = ${data.transitionType})")
     }
     
     @SuppressLint("MissingPermission")
-    private fun fetchLocation(invoker: String, callback: ((loc: ZLocation?) -> Any)? = null) {
+    fun fetchLocation(invoker: String, callback: ((loc: ZLocation?) -> Unit?)? = null) {
         if (!hasLocationPermission()) {
+            // TODO: Log no location access!
             ZLog.write("fetchLocation has no permission! :(")
             return
         }
+        
         locationClient.getProvider().getCurrentLocation(gpsPriority, object : CancellationToken() {
             override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
             override fun isCancellationRequested() = false
         }).addOnSuccessListener { location ->
             if (location == null) {
                 ZLog.warn("Location is null! :(")
+                // TODO: Log no location access!
                 return@addOnSuccessListener
             }
             ZLog.error("fetchLocation Invoked by $invoker")
-            val loc = handleGpsData(location)
+            
+            val activityInt = ActivityTransitionUtil.toActivityInt(currentActivity)
+            val currLatLng = ALatLng(location.latitude, location.longitude)
+            
+            // Check if home
+            isCloseToUserLoc = locationClient.isCloseToUserLocations(currLatLng, userLocations)
+            
+            if (logGps) {
+                ZLog.info("[LocationService]", "fetchLocation invoked " +
+                    "timeSinceLastGps: ${floor(timeSinceLastGps/1000.0)} s, " +
+                    "distanceFromUserLoc: ${"%.2f".format(locationClient.getClosestUserLocDistance())} m, " +
+//                    "gpsPriority: ${ZGps.priorityToString(gpsPriority)}, " +
+                    "isCloseToUserLoc: $isCloseToUserLoc")
+            }
+            lastGpsUpdate = ZTime.msSince1970() // location.time
+            prevLatLng = currLatLng
+            
+            val loc = location.toData(activityInt)
             ZHttp.send(KEY_LOCATION, loc)
             callback?.invoke(loc)
+            locationTicker.checkIfIntervalChanged()
         }.addOnFailureListener {
             ZLog.error(it)
             callback?.invoke(null)
@@ -371,18 +349,18 @@ class LocationService: Service() {
         try {
             val pIntent = activityPendingIntent!!
             if (!hasActivityRecognitionPermission()) {
-                ZLog.write("[LocationService] Stopping Activity Recognition")
+                ZLog.info("[LocationService]", "Stopping Activity Recognition reason: NO_PERMISSION")
                 pIntent.cancel()
                 return
             }
             val task = ActivityRecognition.getClient(applicationContext)
                 .removeActivityTransitionUpdates(pIntent)
             task.addOnSuccessListener {
-                ZLog.write("[LocationService] Stopped Activity Recognition <TASK>")
+                ZLog.info("[LocationService]", "Stopped Activity Recognition <TASK>")
                 pIntent.cancel()
             }
             task.addOnFailureListener { e: Exception ->
-                ZLog.write("[LocationService] Activity Recognition Exception: ${e.message}")
+                ZLog.error("[LocationService] Activity Recognition Exception: ${e.message}")
             }
         } catch (err: Exception) {
             ZLog.error(err)
@@ -391,25 +369,29 @@ class LocationService: Service() {
     
     @SuppressLint("MissingPermission")
     private fun stop() {
-        ZLog.warn("[LocationService] stop()")
+        ZLog.info("[LocationService]", "stop()")
         tryStopActivityRecognition()
+        locationTicker.cancel("[LocationService] stop()")
+        batteryTicker.cancel("[LocationService] stop()")
+        connectionTicker.cancel("[LocationService] stop()")
         stopForeground(true)
         stopSelf()
     }
 
     override fun onDestroy() {
-        ZLog.warn("[LocationService] onDestroy()")
-        super.onDestroy()
+        ZLog.info("[LocationService]", "onDestroy()")
+        notifManager.cancel(NOTIFICATION_ID)
         tryStopActivityRecognition()
-//        locationJob?.cancel("[LocationService] onDestroy()")
-//        batteryTicker.cancel("[LocationService] onDestroy()")
-//        connectionTicker.cancel("[LocationService] onDestroy()")
+        locationTicker.cancel("[LocationService] onDestroy()")
+        batteryTicker.cancel("[LocationService] onDestroy()")
+        connectionTicker.cancel("[LocationService] onDestroy()")
         serviceScope.cancel()
         ZLog.info("[LocationService]", "Unregistering MainReceiver")
         unregisterReceiver(mainReceiver)
         ZLog.info("[LocationService]", "Unregistering ScreenUnlockReceiver")
         unregisterReceiver(screenReceiver)
         instance = null
+        super.onDestroy()
     }
 
     companion object {
@@ -428,17 +410,20 @@ class LocationService: Service() {
         val latLngKtown = ALatLng(52.24263440, 5.11889450)
         
         const val ACTIVITY_TRANSITION_TIMEOUT = 1000L * 5L // 5 seconds
-        const val TICKER_METADATA_TIMEOUT = 1000L * 60L * 10L // 10 minutes
+        const val TICKER_METADATA_TIMEOUT = 1000L * 60L * 5L // 5 minutes
         
         const val LOCATION_HOME_INTERVAL = 1000L * 60L * 5L // Every 5 minutes
         const val LOCATION_INTERVAL = 1000L * 30L // Every 30 seconds
 
         // Prod
-//        const val LOCATION_CLIENT_INTERVAL = 1000L * 60L * 10L // Every 10 minutes
-        
-        const val TICKER_HOME_INTERVAL = 1000L * 60L * 5L // Every 5 minutes
-        const val TICKER_STILL_INTERVAL = 1000L * 60L // Every 60 seconds
+        const val TICKER_HOME_INTERVAL = 1000L * 60L * 15L // Every 15 minutes
+        const val TICKER_STILL_INTERVAL = 1000L * 60L * 5L // Every 5 minutes
         const val TICKER_TRAVEL_INTERVAL = 1000L * 15L // Every 15 seconds
+        
+        // Dev
+//        const val TICKER_HOME_INTERVAL = 1000L * 60L * 5L // Every 5 minutes
+//        const val TICKER_STILL_INTERVAL = 1000L * 60L // Every 60 seconds
+//        const val TICKER_TRAVEL_INTERVAL = 1000L * 15L // Every 15 seconds
         
     }
 }

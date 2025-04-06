@@ -49,6 +49,7 @@ import com.ztechno.applogclient.ui.ZCard
 import com.ztechno.applogclient.ui.ZPacketList
 import com.ztechno.applogclient.utils.ZDevice
 import com.ztechno.applogclient.utils.ZLog
+import com.ztechno.applogclient.utils.ZPacketWrapper
 
 @RequiresApi(Build.VERSION_CODES.O)
 class HistoryActivity : ComponentActivity() {
@@ -122,7 +123,7 @@ class HistoryActivity : ComponentActivity() {
               modifier = btnSize,
               onClick = {
                 mList.clear()
-                mList.addAll( locationService.getPacketHistory().toMutableStateList())
+                mList.addAll( locationService.getPacketHistory().map { ZPacketWrapper(locationService, it) }.toMutableStateList())
               }
             ) {
               Text("Refresh")

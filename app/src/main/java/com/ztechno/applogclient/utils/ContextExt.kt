@@ -43,7 +43,9 @@ fun CoroutineScope.launchPeriodicAsync(
       delay(repeatMillis)
     }
   } else {
-    action()
+    if (isActive) {
+      action()
+    }
   }
 }
 
@@ -102,5 +104,11 @@ fun String.stripQuotes(): String {
 @RequiresApi(Build.VERSION_CODES.O)
 fun Location.toData(): ZApi.ZLocation {
   val speed = if (hasSpeed()) (speed * 3600 / 1000) else null
-  return ZApi.ZLocation(latitude, longitude, ZTime.format(time), accuracy, speed)
+  return ZApi.ZLocation(latitude, longitude, ZTime.format(time), accuracy, speed, null)
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun Location.toData(activityType: Int?): ZApi.ZLocation {
+  val speed = if (hasSpeed()) (speed * 3600 / 1000) else null
+  return ZApi.ZLocation(latitude, longitude, ZTime.format(time), accuracy, speed, activityType)
 }

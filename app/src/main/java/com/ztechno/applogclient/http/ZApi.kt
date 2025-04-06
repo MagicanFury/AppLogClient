@@ -9,8 +9,8 @@ import com.ztechno.applogclient.utils.ZLog
 
 @RequiresApi(Build.VERSION_CODES.O)
 object ZApi {
-  const val KEY_LOCATION = "loc-v2"
-  data class ZLocation(var lat: Double, var lng: Double, var gpsTime: String, var accuracy: Float, var speed: Float?) // accuracy in meters
+  const val KEY_LOCATION = "loc-v3"
+  data class ZLocation(var lat: Double, var lng: Double, var gpsTime: String, var accuracy: Float, var speed: Float?, var activityType: Int?) // accuracy in meters
   
   const val KEY_CONNECTION = "con-v5"
   data class ZConnection(var ssid: String, var hasInternet: Boolean)
@@ -36,8 +36,8 @@ object ZApi {
   data class ZUserLocation(var lat: Double, var lng: Double, var description: String)
   
   
-  const val KEY_TMP = "tmp-v2"
-  data class ZTmp(var isHome: Boolean, var isTravelling: Boolean, val tickJobInterval: Long, val prevActivity: String, val currActivity: String)
+  const val KEY_TMP = "tmp-v3"
+  data class ZTmp(var serviceEnabled: Boolean, var isHome: Boolean, var isTravelling: Boolean, val tickJobInterval: Long, val prevActivity: String, val currActivity: String)
   
   @RequiresApi(Build.VERSION_CODES.O)
   fun fetchUserLocations(): List<ALatLng>? {

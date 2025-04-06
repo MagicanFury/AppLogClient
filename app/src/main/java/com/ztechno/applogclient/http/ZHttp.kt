@@ -31,9 +31,9 @@ object ZHttp {
   private const val BASE_URL: String = "https://www.ztechno.nl/applog"
   
   val history = mutableListOf<ZPacket>()
+  val planQueue = mutableListOf<ZPacket>()
+  val retryQueue = mutableListOf<ZPacket>()
   
-  private val planQueue = mutableListOf<ZPacket>()
-  private val retryQueue = mutableListOf<ZPacket>()
   private val connectivityManager: ConnectivityManager
   private val wifiManager: WifiManager
   

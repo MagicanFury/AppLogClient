@@ -11,12 +11,15 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
+import com.ztechno.applogclient.utils.ALatLng
+import com.ztechno.applogclient.utils.ZGps
 import com.ztechno.applogclient.utils.hasLocationPermission
 import com.ztechno.applogclient.utils.ZLog
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import kotlin.math.min
 
 class DefaultLocationClient(
     private val context: Context,
@@ -24,11 +27,23 @@ class DefaultLocationClient(
     private var gpsPriority: Int
 ): LocationClient {
     
-    private var cachedInterval: Long = 60_000L
+    private var distFromHome: Double = Double.MAX_VALUE
     
-    override fun isIntervalChanged(interval: Long): Boolean {
-        ZLog.info("DefaultLocationClient interval:", interval)
-        return cachedInterval != interval
+    override fun getClosestUserLocDistance(): Double {
+        return distFromHome
+    }
+    
+    override fun isCloseToUserLocations(currLatLng: ALatLng, userLocations: List<ALatLng>, thresholdDist: Double): Boolean {
+        var minDist: Double = Double.MAX_VALUE
+        var isCloseToUserLoc = false
+        userLocations.map {
+            val dist = ZGps.distancePrecise(currLatLng, it)
+            minDist = min(minDist, dist)
+            if (dist <= thresholdDist) {
+                isCloseToUserLoc = true
+            }
+        }
+        return isCloseToUserLoc
     }
 
     override fun getProvider(): FusedLocationProviderClient {
@@ -41,7 +56,6 @@ class DefaultLocationClient(
     
     @SuppressLint("MissingPermission")
     override fun getLocationUpdates(interval: Long, onClose: () -> Unit): Flow<Location> {
-        cachedInterval = interval
         ZLog.write("[DefaultLocationClient] getLocationUpdates(interval=${"%.2f".format((interval / 1000f))}s)")
         return callbackFlow {
             if(!context.hasLocationPermission()) {

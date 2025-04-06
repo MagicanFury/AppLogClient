@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.common.util.SharedPreferencesUtils
 import com.ztechno.applogclient.services.LocationService
 import com.ztechno.applogclient.ui.theme.AppLogClientTheme
 import com.ztechno.applogclient.utils.ZDevice
@@ -66,6 +68,7 @@ class MainActivity(var viewModel: MainViewModel = MainViewModel()) : ComponentAc
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         if (!this.hasLocationPermission()) {
             ActivityCompat.requestPermissions(this,
                 arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION), 0)
@@ -135,7 +138,7 @@ class MainActivity(var viewModel: MainViewModel = MainViewModel()) : ComponentAc
                         Text(text = "Set Home to Weesp")
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(modifier = btnSize,onClick = {
+                    Button(modifier = btnSize, onClick = {
                         Intent(applicationContext, LocationService::class.java).apply {
                             action = LocationService.ACTION_SET_HOME_KTOWN
                             startService(this)
@@ -184,6 +187,7 @@ class MainActivity(var viewModel: MainViewModel = MainViewModel()) : ComponentAc
     
     override fun onStop() {
         super.onStop()
+//        viewModel.
         unbindService(connection)
         bound = false
     }

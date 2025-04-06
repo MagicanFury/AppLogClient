@@ -10,9 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import com.ztechno.applogclient.http.ZPacket
+import com.ztechno.applogclient.utils.ZPacketWrapper
 
 @Composable
-fun ZPacketList(list: SnapshotStateList<ZPacket>?) {
+fun ZPacketList(list: SnapshotStateList<ZPacketWrapper>?) {
   val mList = list ?: remember { mutableStateListOf() }
   LazyColumn(
     modifier = Modifier
@@ -22,6 +23,7 @@ fun ZPacketList(list: SnapshotStateList<ZPacket>?) {
     items(items = mList) {
       ZCard(it)
     }
+    
   }
   Text("...")
 }

@@ -22,8 +22,8 @@ class MainViewModel : ViewModel() {
   
   private val updateData = debounce(300, viewModelScope) { locationService: LocationService ->
     val data = locationService.getData()
-    mutableValue = "State: \t${data.currActivity} \nHom: \t${data.isHome} \nMov: \t${data.isTravelling} \nInt: \t${"%.2f".format(data.tickJobInterval / 1000f)}s"
-    ZLog.error("setting Mutable Value to $mutableValue")
+    mutableValue = "Enabled: ${data.serviceEnabled}\nState: \t${data.currActivity} \nHom: \t${data.isHome} \nMov: \t${data.isTravelling} \nInt: \t${"%.2f".format(data.tickJobInterval / 1000f)}s"
+    ZLog.error("setting mutable UI value to:\n$mutableValue")
   }
   
   fun loadValue(locationService: LocationService) {
@@ -31,11 +31,15 @@ class MainViewModel : ViewModel() {
       updateData(locationService)
     }.launchIn(viewModelScope)
     
-    snapshotFlow { locationService.isHome }.onEach {
+    snapshotFlow { locationService.isCloseToUserLoc }.onEach {
       updateData(locationService)
     }.launchIn(viewModelScope)
     
     snapshotFlow { locationService.currentActivity }.onEach {
+      updateData(locationService)
+    }.launchIn(viewModelScope)
+    
+    snapshotFlow { locationService.locationTicker.isActive }.onEach {
       updateData(locationService)
     }.launchIn(viewModelScope)
   }

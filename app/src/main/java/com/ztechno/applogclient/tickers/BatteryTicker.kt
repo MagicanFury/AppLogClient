@@ -11,7 +11,7 @@ import com.ztechno.applogclient.http.ZHttp
 import kotlinx.coroutines.CoroutineScope
 
 @RequiresApi(Build.VERSION_CODES.O)
-class BatteryTicker(scope: CoroutineScope) : ZTickerBase(scope, TICKER_METADATA_TIMEOUT) {
+class BatteryTicker(scope: CoroutineScope, interval: Long) : ZTickerBase(scope, interval) {
   
   private var prevBatteryData: ZApi.ZBattery? = null
   

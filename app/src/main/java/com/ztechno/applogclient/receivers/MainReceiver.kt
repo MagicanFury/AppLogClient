@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkInfo
 import android.os.Build
+import android.os.IBinder
 import androidx.annotation.RequiresApi
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.gson.Gson
@@ -27,32 +28,29 @@ import com.ztechno.applogclient.utils.ZTime
 import com.ztechno.applogclient.utils.debounce
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 
 
 @RequiresApi(Build.VERSION_CODES.O)
-class MainReceiver(private val locationService: LocationService) : BroadcastReceiver() {
+class MainReceiver(private val locationService: LocationService?) : BroadcastReceiver() {
   
   private val scope = CoroutineScope(Dispatchers.IO)
   
-  private val handleConnectionChange = debounce(1000, scope) { context: Context, intent: Intent, id: String ->
-    val networkInfo = intent.extras?.get("networkInfo") as NetworkInfo?
-    val data = genConnectionData(context!!, networkInfo)
-    ZLog.write("[$id] Network state: ${networkInfo!!.detailedState} ${Gson().toJson(data)}\n\n")
-    ZHttp.send(KEY_CONNECTION, data)
+  init {
+    if (locationService == null) {
+      ZLog.error("MainReceiver locationService=null")
+    }
+    ZLog.write("> init locationService is ${if(locationService!=null) "not" else ""} null")
   }
   
   override fun onReceive(context: Context?, intent: Intent?) {
 //    ZLog.write("MainReceiver.onReceive: $intent ${ZLog.extrasToString(intent?.extras)}")
+    ZLog.write("> locationService is ${if(locationService!=null) "not" else ""} null")
     when (intent?.action) {
-      "android.net.wifi.STATE_CHANGE" -> handleConnectionChange(context, intent)
       "android.net.wifi.WIFI_STATE_CHANGED" -> {}
-      ConnectivityManager.CONNECTIVITY_ACTION -> handleConnectionChange(context, intent)
+      "android.net.wifi.STATE_CHANGE" -> handleConnectionChange.invoke(context, intent, ZTime.groupBySecond())
+      ConnectivityManager.CONNECTIVITY_ACTION -> handleConnectionChange.invoke(context, intent, ZTime.groupBySecond())
       Intent.ACTION_AIRPLANE_MODE_CHANGED -> handleAirplaneModeChange(context, intent)
-      "android.location.PROVIDERS_CHANGED" -> handleLocationChange(context, intent)
+      "android.location.PROVIDERS_CHANGED" -> handleLocationChange.invoke(context, intent, ZTime.groupBySecond())
       "android.intent.action.BOOT_COMPLETED" -> handleBootAction(context, intent, true)
       "android.intent.action.LOCKED_BOOT_COMPLETED" -> handleBootAction(context, intent, true)
       "android.intent.action.REBOOT" -> handleBootAction(context, intent, false)
@@ -66,25 +64,31 @@ class MainReceiver(private val locationService: LocationService) : BroadcastRece
     }
   }
   
-  private fun handleConnectionChange(context: Context?, intent: Intent) {
-    val time = ZTime.groupBySecond()
-    handleConnectionChange.invoke(context!!, intent, time)
-    ZLog.write("[$time] handleConnectionChange")
-//    scope.launch {
-//
-//    }
+  private val handleConnectionChange = debounce(1000, scope) { context: Context?, intent: Intent, id: String ->
+    val networkInfo = intent.extras?.get("networkInfo") as NetworkInfo?
+    val data = genConnectionData(context, networkInfo)
+    ZLog.write("[$id] (debounced) Network state: ${networkInfo?.detailedState} ${Gson().toJson(data)}\n\n")
+    ZHttp.send(KEY_CONNECTION, data)
+    ZLog.write("> locationService is ${if(locationService!=null) "not" else ""} null")
+    locationService?.fetchLocation("handleConnectionChange")
+  }
+  
+  private val handleLocationChange = debounce(1000, scope) { context: Context?, intent: Intent, id: String ->
+    val locationChangeData = genLocationChangeData(context)
+    ZLog.write("[$id] (debounced) Is Location Enabled: ${locationChangeData.enabled}")
+    ZHttp.send(KEY_LOCATION_MODE, locationChangeData)
+    if (locationChangeData.enabled) {
+      locationService?.fetchLocation("handleLocationChange")
+    }
   }
   
   private fun handleAirplaneModeChange(context: Context?, intent: Intent) {
     val data = genAirplaneOnData(context!!)
     ZLog.write("Is Airplane Mode On: ${data.enabled}")
     ZHttp.send(KEY_AIRPLANE_MODE, data)
-  }
-  
-  private fun handleLocationChange(context: Context?, intent: Intent) {
-    val data = genLocationChangeData((context!!))
-    ZLog.write("Is Location Enabled: ${data.enabled}")
-    ZHttp.send(KEY_LOCATION_MODE, data)
+    if (!data.enabled) {
+      locationService?.fetchLocation("handleAirplaneModeChange")
+    }
   }
   
   private fun handleBootAction(context: Context?, intent: Intent, powerOn: Boolean) {
@@ -107,7 +111,7 @@ class MainReceiver(private val locationService: LocationService) : BroadcastRece
           
           ZLog.write("[MainReceiver] Activity Transition: activityType: $activityType transitionType: $transitionType")
           try {
-            locationService.handleActivityTransition(event,
+            locationService!!.handleActivityTransition(event,
               genActivityData(context!!, activityType, transitionType, "DEPENDENCY-INJECTION")
             )
           } catch (err: Throwable) {

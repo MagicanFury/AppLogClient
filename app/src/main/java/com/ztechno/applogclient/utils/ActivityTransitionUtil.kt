@@ -47,19 +47,19 @@ object ActivityTransitionUtil {
     val transitions = mutableListOf<ActivityTransition>()
     
     val activities = listOf(
-//      DetectedActivity.STILL,
+      DetectedActivity.STILL,
       DetectedActivity.WALKING,
 //      DetectedActivity.RUNNING,
       DetectedActivity.ON_BICYCLE,
       DetectedActivity.IN_VEHICLE
     )
     
-    transitions.add(
-      ActivityTransition.Builder()
-        .setActivityType(DetectedActivity.STILL)
-        .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
-        .build()
-    )
+//    transitions.add(
+//      ActivityTransition.Builder()
+//        .setActivityType(DetectedActivity.STILL)
+//        .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
+//        .build()
+//    )
     for (activityType in activities) {
       transitions.add(
         ActivityTransition.Builder()
@@ -90,6 +90,20 @@ object ActivityTransitionUtil {
       DetectedActivity.ON_BICYCLE -> "ON_BICYCLE"
       DetectedActivity.IN_VEHICLE -> "IN_VEHICLE"
       else -> "UNKNOWN"
+    }
+  }
+  
+  fun toActivityInt(activityString: String): Int {
+    return when (activityString) {
+      "IN_VEHICLE" -> 0
+      "ON_BICYCLE" -> 1
+      "ON_FOOT" -> 2
+      "STILL" -> 3
+      "UNKNOWN" -> 4
+      "TILTING" -> 5
+      "WALKING" -> 7
+      "RUNNING" -> 8
+      else -> 4
     }
   }
   

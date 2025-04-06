@@ -56,7 +56,7 @@ object ZDevice {
     }
   }
   
-  fun genConnectionData(context: Context, networkInfo: NetworkInfo?): ZConnection {
+  fun genConnectionData(context: Context?, networkInfo: NetworkInfo?): ZConnection {
 //    val wifi = context!!.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
 //    val connManager = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
 ////    val capabilities = connManager?.getNetworkCapabilities(null)
@@ -78,7 +78,7 @@ object ZDevice {
     return ZAirplaneMode(isTurnedOn)
   }
   
-  fun genLocationChangeData(context: Context): ZLocationMode {
+  fun genLocationChangeData(context: Context?): ZLocationMode {
     val mode = Settings.Secure.getInt(
       context?.contentResolver,
       Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF
