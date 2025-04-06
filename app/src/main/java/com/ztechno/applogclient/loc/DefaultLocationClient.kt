@@ -42,6 +42,7 @@ class DefaultLocationClient(
             if (dist <= thresholdDist) {
                 isCloseToUserLoc = true
             }
+            distFromHome = minDist
         }
         return isCloseToUserLoc
     }

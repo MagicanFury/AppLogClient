@@ -323,8 +323,8 @@ class LocationService: Service() {
             
             if (logGps) {
                 ZLog.info("[LocationService]", "fetchLocation invoked " +
-                    "timeSinceLastGps: ${floor(timeSinceLastGps/1000.0)} s, " +
-                    "distanceFromUserLoc: ${"%.2f".format(locationClient.getClosestUserLocDistance())} m, " +
+                    "timeSinceLastGps: ${String.format("%.2f", timeSinceLastGps/1000.0)} s, " +
+                    "distanceFromUserLoc: ${String.format("%.2f", locationClient.getClosestUserLocDistance())} m, " +
 //                    "gpsPriority: ${ZGps.priorityToString(gpsPriority)}, " +
                     "isCloseToUserLoc: $isCloseToUserLoc")
             }
