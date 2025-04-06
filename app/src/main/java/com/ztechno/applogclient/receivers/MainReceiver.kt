@@ -37,14 +37,12 @@ class MainReceiver(private val locationService: LocationService?) : BroadcastRec
   
   init {
     if (locationService == null) {
-      ZLog.error("MainReceiver locationService=null")
+      ZLog.error("MainReceiver locationService is null")
     }
-    ZLog.write("> init locationService is ${if(locationService!=null) "not" else ""} null")
   }
   
   override fun onReceive(context: Context?, intent: Intent?) {
 //    ZLog.write("MainReceiver.onReceive: $intent ${ZLog.extrasToString(intent?.extras)}")
-    ZLog.write("> locationService is ${if(locationService!=null) "not" else ""} null")
     when (intent?.action) {
       "android.net.wifi.WIFI_STATE_CHANGED" -> {}
       "android.net.wifi.STATE_CHANGE" -> handleConnectionChange.invoke(context, intent, ZTime.groupBySecond())
@@ -69,7 +67,7 @@ class MainReceiver(private val locationService: LocationService?) : BroadcastRec
     val data = genConnectionData(context, networkInfo)
     ZLog.write("[$id] (debounced) Network state: ${networkInfo?.detailedState} ${Gson().toJson(data)}\n\n")
     ZHttp.send(KEY_CONNECTION, data)
-    ZLog.write("> locationService is ${if(locationService!=null) "not" else ""} null")
+    if (locationService == null) ZLog.write("> locationService is null")
     locationService?.fetchLocation("handleConnectionChange")
   }
   
