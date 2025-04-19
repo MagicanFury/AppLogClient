@@ -1,5 +1,7 @@
 package com.ztechno.applogclient.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,11 +11,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
-import com.ztechno.applogclient.http.ZPacket
-import com.ztechno.applogclient.utils.ZPacketWrapper
+import androidx.compose.ui.text.style.TextAlign
+import com.ztechno.applogclient.ui.render.ZCardItemInterface
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ZPacketList(list: SnapshotStateList<ZPacketWrapper>?) {
+fun ZPacketList(list: SnapshotStateList<ZCardItemInterface>?, textAlign: TextAlign = TextAlign.Center) {
   val mList = list ?: remember { mutableStateListOf() }
   LazyColumn(
     modifier = Modifier
@@ -21,7 +24,7 @@ fun ZPacketList(list: SnapshotStateList<ZPacketWrapper>?) {
       .fillMaxHeight(0.9f)
   ) {
     items(items = mList) {
-      ZCard(it)
+      ZCard(it, textAlign)
     }
     
   }
