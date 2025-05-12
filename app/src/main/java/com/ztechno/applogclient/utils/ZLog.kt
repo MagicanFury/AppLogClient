@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.ztechno.applogclient.BuildConfig
+import com.ztechno.applogclient.ui.render.ZLogWrapper
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 
@@ -13,34 +14,60 @@ object ZLog {
   
   private const val TAG = "ZTECHNO"
   
-  private val isDev = BuildConfig.DEBUG
+  private val isDev = false // BuildConfig.DEBUG
   
-  fun write(data: Any) {
-    if (data is Exception)
-      Log.e(TAG, data.stackTraceToString())
-    else if (isDev)
-      Log.i(TAG, "$data")
+  private val history = mutableListOf<ZLogWrapper>()
+  
+  init {
+    Log.e(TAG, "Logging is ${ if (isDev) "enabled" else "disabled" }")
+  }
+  
+  fun clearLogHistory() {
+    history.clear()
+  }
+  
+  fun getLogHistory(): List<ZLogWrapper> {
+    return history
+  }
+  
+  fun write(data: Any, simplifyStack: Boolean = false) {
+    // TODO: Implement max size instead of clear
+    if (!isDev && history.size > 1000) {
+      history.clear()
+    }
+    
+    var str: String
+    if (data is Exception) {
+      str = if (simplifyStack) data.message ?: data.stackTraceToString().take(200) else data.stackTraceToString()
+      history.add(ZLogWrapper("error", str))
+      Log.e(TAG, str)
+    } else if (isDev) {
+      str = "$data"
+      history.add(ZLogWrapper("info", str))
+      Log.i(TAG, str)
+    }
   }
   
   fun info(key: Any, value: Any) {
     if (!isDev) return
-    Log.d(TAG, "$key $value")
+    val str = "$key $value"
+    history.add(ZLogWrapper("debug", str))
+    Log.d(TAG, str)
   }
   
   fun warn(msg: Any) {
     if (!isDev) return
+    history.add(ZLogWrapper("warn", "$msg"))
     Log.w(TAG, "$msg")
   }
   
   fun error(err: Any) {
-    when (err) {
-      is Throwable -> {
-        Log.e(TAG, err.stackTraceToString())
-      }
-      else -> {
-        Log.e(TAG, "$err")
-      }
+    val str = when (err) {
+      is Throwable -> err.stackTraceToString()
+      else -> "$err"
     }
+    history.add(ZLogWrapper("error", str))
+    Log.e(TAG, str)
   }
   
   fun extrasToString(extras: Bundle?): String {
@@ -88,13 +115,11 @@ object ZLog {
   }
   
   
-  @RequiresApi(Build.VERSION_CODES.O)
   @JvmName("toStrReflect")
   private fun toStringReflect(clsInstance: Any?, includeMembers: Boolean = true, includeMethods: Boolean = false): String {
     return toStringReflect(clsInstance, clsInstance?.javaClass, includeMembers, includeMethods)
   }
   
-  @RequiresApi(Build.VERSION_CODES.O)
   private fun toStringReflect(clsInstance: Any?, cls: Class<*>?, includeMembers: Boolean = true, includeMethods: Boolean = false): String {
     if (!isDev) {
       return "?"

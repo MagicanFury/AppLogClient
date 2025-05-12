@@ -5,10 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.net.TrafficStats
-import android.os.Build
 import android.os.StrictMode
 import android.os.StrictMode.ThreadPolicy
 import com.ztechno.applogclient.utils.ZLog
+import com.ztechno.applogclient.utils.requestNoBatteryOptimization
 
 class LocationApp: Application() {
     init {
@@ -43,14 +43,14 @@ class LocationApp: Application() {
         
         TrafficStats.setThreadStatsTag(Thread.currentThread().id.toInt())
         
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "location",
-                "Location",
-                NotificationManager.IMPORTANCE_MIN
-            )
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            "location",
+            "Location",
+            NotificationManager.IMPORTANCE_MIN
+        )
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+        
+        applicationContext.requestNoBatteryOptimization()
     }
 }

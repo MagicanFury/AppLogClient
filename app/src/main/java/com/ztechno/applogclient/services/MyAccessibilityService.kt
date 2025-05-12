@@ -30,7 +30,7 @@ class MyAccessibilityService : AccessibilityService() {
   override fun onServiceConnected() {
     Intent(applicationContext, LocationService::class.java).apply {
       action = LocationService.ACTION_START
-      startService(this)
+      startForegroundService(this)
     }
   }
   

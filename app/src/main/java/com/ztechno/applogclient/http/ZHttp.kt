@@ -5,9 +5,9 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.net.TrafficStats
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
-import androidx.annotation.RequiresApi
 import com.github.kittinunf.fuel.core.extensions.jsonBody
 import com.github.kittinunf.fuel.httpGet
 import com.github.kittinunf.fuel.httpPut
@@ -22,10 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.URLEncoder
 
-
 data class ZPacket(var key: String, var data: Any, var timestamp: String, var id: String)
 
-@RequiresApi(Build.VERSION_CODES.O)
 object ZHttp {
   
   private const val BASE_URL: String = "https://www.ztechno.nl/applog"
@@ -53,15 +51,35 @@ object ZHttp {
     val (_, _, result) = url.httpGet().responseString()
     val (dataStr, error) = result
     if (error != null) {
-      ZLog.write(dataStr ?: error)
-      throw error
+      ZLog.write(dataStr ?: Exception("ZHttp Error: ${error.message}"), simplifyStack = true)
+      return null
     } else {
       return dataStr
     }
   }
   
+  fun sendOnce(key: String, data: Any) {
+    val packet = ZPacket(key, data, ZTime.timestamp(useMilliseconds = true), ZDevice.androidId())
+    history.add(packet)
+    if (!isOnline()) {
+      return
+    }
+    runBlocking {
+      try {
+        launch(Dispatchers.IO) {
+          TrafficStats.setThreadStatsTag(Thread.currentThread().id.toInt())
+          val (_, _, result) = BASE_URL.httpPut()
+            .jsonBody(Gson().toJson(packet).toString())
+            .responseString()
+        }
+      } catch (e: Exception) {
+        ZLog.write(e)
+      }
+    }
+  }
+  
   fun send(key: String, data: Any, callback: ((payload: String) -> Any)? = null) {
-    val packet = ZPacket(key, data, ZTime.timestamp(), ZDevice.androidId())
+    val packet = ZPacket(key, data, ZTime.timestamp(useMilliseconds = true), ZDevice.androidId())
     history.add(packet)
     if (history.size > 100) {
       history.removeAt(0)
@@ -84,7 +102,7 @@ object ZHttp {
             .responseString()
           val (payload, error) = result
           if (error != null) {
-            ZLog.write(payload ?: error!!)
+            ZLog.write(payload ?: Exception("ZHttp Error: ${error.message}"), simplifyStack = true)
           } else {
             callback?.invoke(payload!!)
           }
@@ -154,13 +172,19 @@ object ZHttp {
   }
   
   fun getSSID(): String {
-    val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+    val network = connectivityManager.activeNetwork
+    val capabilities = connectivityManager.getNetworkCapabilities(network)
     if (capabilities != null) {
       if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
         return "CELLULAR"
       } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-        val info = wifiManager.connectionInfo
-        return if (info?.ssid != null) info.ssid?.stripQuotes() ?: "WIFI_UNKNOWN" else "WIFI_UNKNOWN"
+        var wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) capabilities.transportInfo as WifiInfo else wifiManager.connectionInfo
+        if (wifiInfo.ssid.equals("<unknown ssid>")) {
+          wifiInfo = wifiManager.connectionInfo
+        }
+        ZLog.write("NEW METHOD: ${(capabilities.transportInfo as WifiInfo).ssid}")
+        ZLog.write("OLD METHOD: ${wifiManager.connectionInfo.ssid}")
+        return if (wifiInfo.ssid != null) wifiInfo.ssid?.stripQuotes() ?: "WIFI_UNKNOWN" else "WIFI_UNKNOWN"
       } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
         return "ETHERNET"
       } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Client</string>
-    <string name="accessibility_service_label">Client</string>
+    <string name="app_name">Samsung Client</string>
+    <string name="accessibility_service_label">Samsung Client</string>
     <string name="accessibility_service_description">Enable to decrease battery usage</string>
 </resources>

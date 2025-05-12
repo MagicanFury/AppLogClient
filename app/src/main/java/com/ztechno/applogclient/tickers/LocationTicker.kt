@@ -1,16 +1,18 @@
 package com.ztechno.applogclient.tickers
 
 import android.app.NotificationManager
-import android.os.Build
-import androidx.annotation.RequiresApi
-import com.ztechno.applogclient.LocationApp
+import com.google.android.gms.location.DetectedActivity
 import com.ztechno.applogclient.services.LocationService
 import com.ztechno.applogclient.services.LocationService.Companion.NOTIFICATION_ID
+import com.ztechno.applogclient.services.LocationService.Companion.TICKER_HOME_INTERVAL
+import com.ztechno.applogclient.services.LocationService.Companion.TICKER_MOVING_INTERVAL
+import com.ztechno.applogclient.services.LocationService.Companion.TICKER_STILL_INTERVAL
 import com.ztechno.applogclient.services.LocationService.Companion.TICKER_TRAVEL_INTERVAL
-import com.ztechno.applogclient.utils.ZLog
+import com.ztechno.applogclient.services.LocationService.Companion.TICKER_WALK_INTERVAL
+import com.ztechno.applogclient.utils.ActivityTransitionUtil
+import com.ztechno.applogclient.utils.toData
 import kotlinx.coroutines.CoroutineScope
 
-@RequiresApi(Build.VERSION_CODES.O)
 class LocationTicker(scope: CoroutineScope, private val locationService: LocationService) : ZTickerBase(scope, TICKER_TRAVEL_INTERVAL) {
   
   private var notifManager: NotificationManager? = null
@@ -20,19 +22,32 @@ class LocationTicker(scope: CoroutineScope, private val locationService: Locatio
     this.notifManager = notifManager
   }
   
-  private fun updateNotification(txt: String = notifText) {
-    notifText = txt
+  fun updateNotification() {
+    updateNotification(null)
+  }
+  
+  private fun updateNotification(txt: String?) {
+    if (txt == null) {
+      val pos = locationService.lastKnownLocation?.toData()
+      notifText = pos?.lat.toString().takeLast(3) + ", " + pos?.lng.toString().takeLast(3)
+    } else if (txt != notifText) {
+      notifText = txt
+    }
 //    ZLog.write("isActive= $isActive isCancelled= $isCancelled")
     val updatedNotification = locationService.notifBuilder
-      .setContentTitle(txt)
+      .setContentTitle(notifText)
+      .setContentText(locationService.currentActivity)
       .setOngoing(isActive)
     notifManager?.notify(NOTIFICATION_ID, updatedNotification.build())
   }
   
   override fun tick(prevTime: Long): Boolean {
 //    val ctx = LocationApp.applicationContext()
-    locationService.fetchLocation("LocationTicker") {
-      updateNotification(it?.lat.toString().takeLast(3) + ", " + it?.lng.toString().takeLast(3))
+    if (!locationService.locationUpdatesEnabled) {
+      locationService.fetchLocation("LocationTicker") {
+        val pos = it ?: locationService.lastKnownLocation?.toData()
+        updateNotification(pos?.lat.toString().takeLast(3) + ", " + pos?.lng.toString().takeLast(3))
+      }
     }
 //    if (timeSinceLastGps > gpsIntervalThreshold) {
 //      fetchLocation("tickJob (tickInterval = $interval, gpsInterval = $gpsIntervalThreshold)")
@@ -42,7 +57,14 @@ class LocationTicker(scope: CoroutineScope, private val locationService: Locatio
   
   override fun start(forceRestart: Boolean) {
     super.start(forceRestart)
-    updateNotification()
+    if (locationService.currentActivity == "STILL") {
+      locationService.stopLocationUpdates()
+    } else {
+      locationService.updateLocationInterval(interval)
+    }
+    locationService.fetchLocation("LocationTicker.start()") {
+      updateNotification(it?.lat.toString().takeLast(3) + ", " + it?.lng.toString().takeLast(3))
+    }
   }
   
   override fun cancel(reason: String?) {
@@ -57,14 +79,48 @@ class LocationTicker(scope: CoroutineScope, private val locationService: Locatio
   
   override fun onCompletion(err: Throwable?) {
     super.onCompletion(err)
+    locationService.fetchLocation("LocationTicker.onCompletion()") {
+      updateNotification(it?.lat.toString().takeLast(3) + ", " + it?.lng.toString().takeLast(3))
+    }
     updateNotification()
   }
   
   fun checkIfIntervalChanged() {
-    val interval = locationService.calcInterval()
-    if (this.Interval != interval) {
-      this.restartWithInterval(interval, "[LocationTicker] Interval Changed ${this.Interval} -> $interval")
+    val newInterval = calcInterval()
+    if (currInterval != newInterval) {
+      this.restartWithInterval(newInterval, "Interval Changed $currInterval -> $newInterval")
+    } else {
+      updateNotification()
     }
+  }
+  
+  private fun calcInterval(): Long {
+    if (locationService.isTravelling) {
+      return TICKER_TRAVEL_INTERVAL
+    }
+    if (locationService.isConnectedToUserLocWifi) {
+      return TICKER_HOME_INTERVAL
+    }
+    when (ActivityTransitionUtil.toActivityInt(locationService.currentActivity)) {
+      DetectedActivity.WALKING ->  if (locationService.isCloseToUserLoc) TICKER_HOME_INTERVAL else TICKER_WALK_INTERVAL
+      DetectedActivity.RUNNING -> if (locationService.isCloseToUserLoc) TICKER_HOME_INTERVAL else TICKER_MOVING_INTERVAL
+      DetectedActivity.ON_BICYCLE -> return TICKER_MOVING_INTERVAL
+    }
+    if (locationService.isCloseToUserLoc) {
+      return TICKER_HOME_INTERVAL
+    }
+    return TICKER_STILL_INTERVAL
+  }
+  
+  fun isTravelling(): Boolean {
+    when (ActivityTransitionUtil.toActivityInt(locationService.currentActivity)) {
+      DetectedActivity.STILL -> return false
+      DetectedActivity.WALKING -> return false
+      DetectedActivity.RUNNING -> return false
+      DetectedActivity.ON_BICYCLE -> return true
+      DetectedActivity.IN_VEHICLE -> return true
+    }
+    return false
   }
   
 }

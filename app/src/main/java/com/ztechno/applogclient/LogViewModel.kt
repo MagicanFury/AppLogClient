@@ -1,21 +1,23 @@
 package com.ztechno.applogclient
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
-import com.ztechno.applogclient.services.LocationService
+import com.ztechno.applogclient.ui.LoadingViewModel
+import com.ztechno.applogclient.ui.ZComponentActivity
+import com.ztechno.applogclient.ui.render.ZCardItemInterface
 import com.ztechno.applogclient.utils.ZLog
-import com.ztechno.applogclient.utils.ZLogWrapper
+import kotlinx.coroutines.delay
 
-class LogActivity : ViewModel() {
+class LogViewModel(private val loadingViewModel: LoadingViewModel) : ViewModel() {
   
-  var items = mutableStateListOf<ZLogWrapper>()
+  var items = mutableStateListOf<ZCardItemInterface>()
   
-  @RequiresApi(Build.VERSION_CODES.O)
-  fun loadValue(locationService: LocationService) {
-    items.addAll(ZLog.getLogHistory().toMutableStateList())
-//    unsentPackets.addAll(locationService.getPacketHistory(unsent = true).toMutableStateList())
+  fun loadValue(): LogViewModel {
+    loadingViewModel.waitFor {
+      delay(300)
+      items.addAll(ZLog.getLogHistory().toMutableStateList())
+    }
+    return this
   }
 }

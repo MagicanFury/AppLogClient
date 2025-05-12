@@ -2,7 +2,7 @@
 <resources>
 
     <style name="Theme.AppLogClient" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@color/purple_700</item>
+        <item name="android:statusBarColor">@color/primary_color</item>
     </style>
 
     <style name="Theme.Transparent" parent="android:Theme">

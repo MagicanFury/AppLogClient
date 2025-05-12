@@ -2,18 +2,48 @@ package com.ztechno.applogclient.utils
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+//import com.spr.jetpack_loading.components.indicators.LineSpinFadeLoaderIndicator
 import com.ztechno.applogclient.http.ZApi
+import com.ztechno.applogclient.ui.theme.AppLogClientTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+fun Context.requestNoBatteryOptimization() {
+  try {
+    val intent = Intent()
+    val packageName = this.packageName
+    val pm = this.getSystemService(Context.POWER_SERVICE) as PowerManager
+    if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+      intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+      intent.data = Uri.parse("package:$packageName")
+      this.startActivity(intent)
+    }
+  } catch (e: Throwable) {
+    ZLog.error(e)
+  }
+}
 
 fun Context.hasLocationPermission(): Boolean {
     return ContextCompat.checkSelfPermission(
@@ -101,14 +131,28 @@ fun String.stripQuotes(): String {
   return this
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 fun Location.toData(): ZApi.ZLocation {
   val speed = if (hasSpeed()) (speed * 3600 / 1000) else null
   return ZApi.ZLocation(latitude, longitude, ZTime.format(time), accuracy, speed, null)
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-fun Location.toData(activityType: Int?): ZApi.ZLocation {
+fun Location.toData(activityString: String?): ZApi.ZLocation {
+  val activityType = activityString?.let { ActivityTransitionUtil.toActivityInt(it) }
   val speed = if (hasSpeed()) (speed * 3600 / 1000) else null
   return ZApi.ZLocation(latitude, longitude, ZTime.format(time), accuracy, speed, activityType)
+}
+
+fun ComponentActivity.showLoading() {
+  setContent {
+    AppLogClientTheme {
+      Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+//        LineSpinFadeLoaderIndicator(color = MaterialTheme.colors.primary)
+        Text("Loading", color = MaterialTheme.colors.primary)
+      }
+    }
+  }
 }

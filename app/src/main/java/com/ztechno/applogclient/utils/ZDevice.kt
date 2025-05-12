@@ -1,36 +1,40 @@
 package com.ztechno.applogclient.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Context.BATTERY_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
-import android.net.ConnectivityManager
-import android.net.NetworkInfo
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
-import androidx.annotation.RequiresApi
 import com.ztechno.applogclient.LocationApp
 import com.ztechno.applogclient.http.ZApi.ZAirplaneMode
 import com.ztechno.applogclient.http.ZApi.ZBootOnOff
-import com.ztechno.applogclient.http.ZApi.ZConnection
 import com.ztechno.applogclient.http.ZApi.ZLocationMode
 import com.ztechno.applogclient.http.ZApi.ZBattery
 import com.ztechno.applogclient.http.ZApi.ZActivityTransition
-import com.ztechno.applogclient.http.ZHttp
 import kotlin.math.floor
 
-@RequiresApi(Build.VERSION_CODES.O)
 object ZDevice {
   
+  @SuppressLint("HardwareIds")
   fun androidId(context: Context = LocationApp.applicationContext()): String {
-    val id =  Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+    val id = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     return id
   }
   
   fun hasDeviceId(sharedPreferences: SharedPreferences): Boolean {
     return (sharedPreferences.contains("deviceId"))
+  }
+  
+  fun getDeviceId(sharedPreferences: SharedPreferences): String? {
+    var value = sharedPreferences.getString("deviceId", null)
+    if (value != null) {
+      return value
+    }
+    return null
   }
   
   fun getOrGenerateDeviceId(sharedPreferences: SharedPreferences): String {
@@ -56,20 +60,6 @@ object ZDevice {
     }
   }
   
-  fun genConnectionData(context: Context?, networkInfo: NetworkInfo?): ZConnection {
-//    val wifi = context!!.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
-//    val connManager = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
-////    val capabilities = connManager?.getNetworkCapabilities(null)
-//    val mWifi = connManager?.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-//    val mData = connManager?.getNetworkInfo(ConnectivityManager.TYPE_MOBILE)
-//    var state: String = (networkInfo?.state ?: mWifi?.state ?: mData?.state!!).toString()
-    val wifi = ZHttp.getWifiSettings()
-    val data = ZHttp.getDataSettings()
-    
-    val hasInternet = (wifi?.state == NetworkInfo.State.CONNECTED || data?.state == NetworkInfo.State.CONNECTED)
-    return ZConnection(ZHttp.getSSID(), hasInternet)
-  }
-  
   fun genAirplaneOnData(context: Context): ZAirplaneMode {
     val isTurnedOn = Settings.Global.getInt(
       context.contentResolver,
@@ -91,11 +81,11 @@ object ZDevice {
     return ZBootOnOff(powerOn, if (context == null) -1 else ZDevice.calcBatteryPercentage(context))
   }
   
-  fun genBatteryData(context: Context): ZBattery {
-    return ZBattery(calcBatteryPercentage(context))
+  fun genBatteryData(context: Context, alert: String? = null): ZBattery {
+    return ZBattery(calcBatteryPercentage(context), alert)
   }
   
-  fun genActivityData(context: Context, activityType: String, transitionType: String?, extraData: String?): ZActivityTransition {
-    return ZActivityTransition(activityType, transitionType, extraData)
+  fun genActivityData(activityType: String, transitionType: String?, timestamp: String?, extraData: String?): ZActivityTransition {
+    return ZActivityTransition(activityType, transitionType, timestamp, extraData)
   }
 }

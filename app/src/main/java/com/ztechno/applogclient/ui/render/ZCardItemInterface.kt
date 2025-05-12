@@ -1,4 +1,4 @@
-package com.ztechno.applogclient
+package com.ztechno.applogclient.ui.render
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color

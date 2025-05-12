@@ -49,7 +49,7 @@ object ActivityTransitionUtil {
     val activities = listOf(
       DetectedActivity.STILL,
       DetectedActivity.WALKING,
-//      DetectedActivity.RUNNING,
+      DetectedActivity.RUNNING,
       DetectedActivity.ON_BICYCLE,
       DetectedActivity.IN_VEHICLE
     )
@@ -107,7 +107,7 @@ object ActivityTransitionUtil {
     }
   }
   
-  fun toTransitionType(transitionType: Int): String {
+  fun toTransitionString(transitionType: Int): String {
     return when (transitionType) {
       ActivityTransition.ACTIVITY_TRANSITION_ENTER -> "ENTER"
       ActivityTransition.ACTIVITY_TRANSITION_EXIT -> "EXIT"
